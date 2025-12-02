@@ -8,7 +8,7 @@
 }
 
 body {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background: linear-gradient(135deg, #0a1929, #0f2d44, #1a3d5c);
     color: #fff;
     min-height: 100vh;
     overflow-x: hidden;
@@ -36,6 +36,14 @@ h1 {
     background-clip: text;
     color: transparent;
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+h1 i {
+    font-size: 2.5rem;
 }
 
 .tagline {
@@ -54,11 +62,12 @@ h1 {
     flex: 1;
     min-width: 700px;
     height: 600px;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgba(0, 10, 20, 0.5);
     border-radius: 15px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
     position: relative;
+    border: 1px solid rgba(100, 150, 255, 0.2);
 }
 
 #globeCanvas {
@@ -74,33 +83,61 @@ h1 {
     display: flex;
     gap: 10px;
     z-index: 10;
+    flex-wrap: wrap;
 }
 
 .controls button {
-    background: rgba(0, 30, 60, 0.8);
+    background: rgba(0, 30, 60, 0.9);
     border: 1px solid rgba(100, 150, 255, 0.5);
     color: white;
-    padding: 8px 15px;
-    border-radius: 5px;
+    padding: 10px 15px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(5px);
 }
 
 .controls button:hover {
-    background: rgba(0, 50, 100, 0.9);
+    background: rgba(0, 50, 100, 0.95);
     transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+}
+
+.globe-info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 20, 40, 0.8);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border-left: 3px solid #4facfe;
+    backdrop-filter: blur(5px);
+    max-width: 300px;
+}
+
+.globe-info p {
+    font-size: 0.9rem;
+    color: #a3d5ff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .memories-panel {
     flex: 1;
     min-width: 300px;
-    background: rgba(20, 40, 60, 0.7);
+    background: rgba(20, 40, 60, 0.8);
     border-radius: 15px;
     padding: 25px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
+    border: 1px solid rgba(100, 150, 255, 0.2);
+    backdrop-filter: blur(10px);
 }
 
 .panel-header {
@@ -111,6 +148,32 @@ h1 {
     font-size: 1.8rem;
     color: #4facfe;
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.memory-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    background: rgba(79, 172, 254, 0.2);
+    border: 1px solid rgba(79, 172, 254, 0.5);
+    color: #a3d5ff;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-btn:hover {
+    background: rgba(79, 172, 254, 0.3);
 }
 
 .memories-list {
@@ -121,24 +184,71 @@ h1 {
     padding-right: 10px;
 }
 
+.memories-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.memories-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.memories-list::-webkit-scrollbar-thumb {
+    background: rgba(79, 172, 254, 0.5);
+    border-radius: 10px;
+}
+
+.memories-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 172, 254, 0.7);
+}
+
 .memory-item {
-    background: rgba(30, 60, 90, 0.6);
+    background: rgba(30, 60, 90, 0.7);
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 15px;
     border-left: 4px solid #4facfe;
     transition: all 0.3s;
     cursor: pointer;
+    position: relative;
 }
 
 .memory-item:hover {
     transform: translateX(5px);
-    background: rgba(40, 70, 100, 0.8);
+    background: rgba(40, 70, 100, 0.9);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 .memory-item.active {
-    background: rgba(50, 100, 150, 0.8);
+    background: rgba(50, 100, 150, 0.9);
     border-left: 4px solid #00f2fe;
+}
+
+.delete-memory {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 50, 50, 0.2);
+    border: 1px solid rgba(255, 50, 50, 0.5);
+    color: #ff6666;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0;
+}
+
+.memory-item:hover .delete-memory {
+    opacity: 1;
+}
+
+.delete-memory:hover {
+    background: rgba(255, 50, 50, 0.4);
+    transform: scale(1.1);
 }
 
 .memory-location {
@@ -146,6 +256,7 @@ h1 {
     font-size: 1.1rem;
     color: #a3d5ff;
     margin-bottom: 5px;
+    padding-right: 30px;
 }
 
 .memory-date {
@@ -164,6 +275,9 @@ h1 {
     color: #4facfe;
     margin-bottom: 15px;
     font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .form-group {
@@ -171,7 +285,9 @@ h1 {
 }
 
 .form-group label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 5px;
     color: #a3d5ff;
     font-weight: 500;
@@ -180,12 +296,13 @@ h1 {
 .form-group input,
 .form-group textarea {
     width: 100%;
-    padding: 10px 15px;
+    padding: 12px 15px;
     border-radius: 8px;
     border: 1px solid rgba(100, 150, 255, 0.3);
-    background: rgba(10, 30, 50, 0.7);
+    background: rgba(10, 30, 50, 0.8);
     color: white;
     font-size: 1rem;
+    transition: all 0.3s;
 }
 
 .form-group textarea {
@@ -198,6 +315,7 @@ h1 {
     outline: none;
     border-color: #4facfe;
     box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
+    background: rgba(15, 35, 55, 0.9);
 }
 
 .btn-add {
@@ -211,6 +329,10 @@ h1 {
     cursor: pointer;
     transition: all 0.3s;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .btn-add:hover {
@@ -222,26 +344,37 @@ h1 {
     display: flex;
     justify-content: space-around;
     margin-top: 30px;
-    background: rgba(20, 40, 60, 0.5);
+    background: rgba(20, 40, 60, 0.6);
     border-radius: 10px;
-    padding: 20px;
+    padding: 25px;
+    flex-wrap: wrap;
+    gap: 20px;
+    border: 1px solid rgba(100, 150, 255, 0.2);
+    backdrop-filter: blur(10px);
 }
 
 .stat-item {
     text-align: center;
+    flex: 1;
+    min-width: 150px;
 }
 
 .stat-value {
-    font-size: 2.2rem;
+    font-size: 2.5rem;
     font-weight: 700;
     color: #4facfe;
     line-height: 1;
+    text-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
 }
 
 .stat-label {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: #a3d5ff;
-    margin-top: 5px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 footer {
@@ -251,6 +384,83 @@ footer {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     color: #88c1ff;
     font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: rgba(20, 40, 60, 0.95);
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 500px;
+    width: 90%;
+    border: 1px solid rgba(255, 50, 50, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h3 {
+    color: #ff6666;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-content p {
+    color: #e6f2ff;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+.btn-delete {
+    background: linear-gradient(to right, #ff416c, #ff4b2b);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-delete:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+}
+
+.btn-cancel {
+    background: rgba(100, 150, 255, 0.2);
+    color: #a3d5ff;
+    border: 1px solid rgba(100, 150, 255, 0.5);
+    padding: 10px 25px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-cancel:hover {
+    background: rgba(100, 150, 255, 0.3);
 }
 
 /* Loading overlay */
@@ -260,7 +470,7 @@ footer {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(10, 25, 41, 0.95);
+    background: rgba(10, 25, 41, 0.98);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -270,9 +480,9 @@ footer {
 }
 
 .loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(79, 172, 254, 0.3);
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(79, 172, 254, 0.2);
     border-top: 5px solid #4facfe;
     border-radius: 50%;
     animation: spin 1s linear infinite;
@@ -293,26 +503,50 @@ footer {
     .globe-container {
         min-width: 100%;
     }
+    
+    .stats {
+        justify-content: center;
+    }
+    
+    .stat-item {
+        min-width: 120px;
+    }
 }
 
 @media (max-width: 768px) {
     .globe-container {
-        height: 450px;
+        height: 500px;
     }
     
     h1 {
         font-size: 2.2rem;
     }
     
+    h1 i {
+        font-size: 2rem;
+    }
+    
     .controls {
-        flex-wrap: wrap;
         bottom: 10px;
         left: 10px;
+        right: 10px;
+        justify-content: center;
     }
     
     .controls button {
-        padding: 6px 12px;
+        padding: 8px 12px;
         font-size: 0.9rem;
+    }
+    
+    .globe-info {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        max-width: none;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
     }
 }
 
@@ -322,7 +556,7 @@ footer {
     }
     
     .globe-container {
-        height: 350px;
+        height: 400px;
     }
     
     .memories-panel {
@@ -335,5 +569,21 @@ footer {
     
     .tagline {
         font-size: 1rem;
+    }
+    
+    .controls button span {
+        display: none;
+    }
+    
+    .controls button i {
+        font-size: 1.2rem;
+    }
+    
+    .stat-item {
+        min-width: 100px;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
     }
 }

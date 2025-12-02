@@ -8,51 +8,58 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Travel Memory Globe</h1>
-            <p class="tagline">Mark your journey around the world with personal memories</p>
+            <h1><i class="fas fa-globe-americas"></i> Divine's Travel Memory Globe</h1>
+            <p class="tagline">Marking my journey around the world with my personal memories</p>
         </header>
         
         <div class="main-content">
             <div class="globe-container">
                 <canvas id="globeCanvas"></canvas>
                 <div class="controls">
-                    <button id="rotateToggle">Pause Rotation</button>
-                    <button id="resetView">Reset View</button>
-                    <button id="toggleMarkers">Hide Markers</button>
+                    <button id="rotateToggle"><i class="fas fa-pause"></i> Pause Rotation</button>
+                    <button id="resetView"><i class="fas fa-home"></i> Reset View</button>
+                    <button id="toggleMarkers"><i class="fas fa-map-marker-alt"></i> Hide Markers</button>
+                    <button id="exportData"><i class="fas fa-download"></i> Export</button>
+                </div>
+                <div class="globe-info">
+                    <p><i class="fas fa-mouse-pointer"></i> Click and drag to rotate | Scroll to zoom | Click markers for details</p>
                 </div>
             </div>
             
             <div class="memories-panel">
                 <div class="panel-header">
-                    <h2>Travel Memories</h2>
+                    <h2><i class="fas fa-memory"></i> Travel Memories</h2>
                     <p>Click on a marker on the globe to view memories or add a new one below.</p>
+                    <div class="memory-actions">
+                        <button id="importBtn" class="action-btn"><i class="fas fa-upload"></i> Import</button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;">
+                    </div>
                 </div>
                 
                 <div class="memories-list" id="memoriesList">
-                    <!-- Memories will be dynamically added here -->
                 </div>
                 
                 <div class="add-memory-form">
-                    <h3>Add New Memory</h3>
+                    <h3><i class="fas fa-plus-circle"></i> Add New Memory</h3>
                     <form id="memoryForm">
                         <div class="form-group">
-                            <label for="location">Location</label>
+                            <label for="location"><i class="fas fa-map-pin"></i> Location</label>
                             <input type="text" id="location" placeholder="e.g., Paris, France" required>
                         </div>
                         <div class="form-group">
-                            <label for="date">Visit Date</label>
+                            <label for="date"><i class="fas fa-calendar-alt"></i> Visit Date</label>
                             <input type="date" id="date" required>
                         </div>
                         <div class="form-group">
-                            <label for="memory">Memory</label>
+                            <label for="memory"><i class="fas fa-sticky-note"></i> Memory</label>
                             <textarea id="memory" placeholder="Describe your experience at this location..." required></textarea>
                         </div>
-                        <button type="submit" class="btn-add">Add Memory to Globe</button>
+                        <button type="submit" class="btn-add"><i class="fas fa-map-marker-alt"></i> Add Memory to Globe</button>
                     </form>
                 </div>
             </div>
@@ -61,22 +68,38 @@
         <div class="stats">
             <div class="stat-item">
                 <div class="stat-value" id="countriesCount">0</div>
-                <div class="stat-label">Countries Visited</div>
+                <div class="stat-label"><i class="fas fa-flag"></i> Countries Visited</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="memoriesCount">0</div>
-                <div class="stat-label">Memories Saved</div>
+                <div class="stat-label"><i class="fas fa-memory"></i> Memories Saved</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value" id="firstMemory">2023</div>
-                <div class="stat-label">First Memory</div>
+                <div class="stat-label"><i class="fas fa-calendar-day"></i> First Memory</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="latestMemory">Today</div>
+                <div class="stat-label"><i class="fas fa-clock"></i> Latest Memory</div>
             </div>
         </div>
         
         <footer>
             <p>Travel Memory Globe &copy; <span id="currentYear"></span> | Mark your journey around the world</p>
-            <p>Click and drag to rotate the globe | Scroll to zoom | Click on markers to view memories</p>
+            <p>Drag to rotate globe | Scroll to zoom | Click markers to view memories | Click memories to find on globe</p>
         </footer>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-exclamation-triangle"></i> Delete Memory</h3>
+            <p>Are you sure you want to delete this memory? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="confirmDelete" class="btn-delete">Delete</button>
+                <button id="cancelDelete" class="btn-cancel">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
