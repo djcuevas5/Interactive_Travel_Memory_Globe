@@ -3,13 +3,10 @@
 // Set current year in footer
 document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-// Set today's date as default in the form
-document.getElementById('date').valueAsDate = new Date();
-
 // Variables
 let memories = [];
 let markers = [];
-let isRotating = true;
+let isRotating = false;
 let markersVisible = true;
 let countriesVisited = new Set();
 let memoryToDelete = null;
@@ -64,6 +61,56 @@ function loadMemories() {
     });
 }
 
+// Chicago date formatter
+function formatChicagoDate(dateString) {
+    const date = new Date(dateString + 'T12:00:00'); // Noon to avoid timezone issues
+    const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'America/Chicago'
+    };
+    return date.toLocaleDateString('en-US', options);
+}
+
+// Get today's date in Chicago for the form
+function getChicagoToday() {
+    const now = new Date();
+    const chicagoDate = now.toLocaleDateString('en-US', {
+        timeZone: 'America/Chicago',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    // Convert MM/DD/YYYY to YYYY-MM-DD
+    const parts = chicagoDate.split('/');
+    return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+}
+
+// Set form date to Chicago's today
+document.getElementById('date').value = getChicagoToday();
+
+// Relative date for Chicago
+function formatRelativeDateChicago(dateString) {
+    const chicagoDate = new Date(dateString + 'T12:00:00');
+    const now = new Date();
+    
+    // Convert both to Chicago time for accurate comparison
+    const chicagoNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const chicagoMemory = new Date(chicagoDate.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    
+    const diffTime = Math.abs(chicagoNow - chicagoMemory);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) === 1 ? '' : 's'} ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) === 1 ? '' : 's'} ago`;
+    return `${Math.floor(diffDays / 365)} year${Math.floor(diffDays / 365) === 1 ? '' : 's'} ago`;
+}
+
 // Save memories to localStorage
 function saveMemories() {
     localStorage.setItem('travelMemories', JSON.stringify(memories));
@@ -108,7 +155,7 @@ function initGlobe() {
     controls.minDistance = 1.5;
     controls.maxDistance = 8;
     
-    // Create the globe
+    // Create the globe - FIXED VERSION (no green land overlay)
     createEarthGlobe();
     
     // Add markers for existing memories
@@ -171,7 +218,7 @@ function addStars() {
     scene.add(stars);
 }
 
-// Create Earth with texture
+// Create Earth with texture - FIXED (no green overlay)
 function createEarthGlobe() {
     // Create sphere
     const geometry = new THREE.SphereGeometry(1, 64, 64);
@@ -183,9 +230,7 @@ function createEarthGlobe() {
     const earthMaterial = new THREE.MeshPhongMaterial({
         color: 0x2a5c8a,
         specular: new THREE.Color(0x333333),
-        shininess: 10,
-        transparent: true,
-        opacity: 0.95
+        shininess: 10
     });
     
     // Try to load actual Earth texture
@@ -196,6 +241,7 @@ function createEarthGlobe() {
                 console.log('Earth texture loaded');
                 earthMaterial.map = earthTexture;
                 earthMaterial.needsUpdate = true;
+                earthMaterial.color.set(0xffffff); // Reset color when texture loads
             },
             undefined,
             (error) => {
@@ -210,16 +256,7 @@ function createEarthGlobe() {
     globe = new THREE.Mesh(geometry, earthMaterial);
     scene.add(globe);
     
-    // Add land masses
-    const landGeometry = new THREE.SphereGeometry(1.01, 64, 64);
-    const landMaterial = new THREE.MeshPhongMaterial({
-        color: 0x3a8c5a,
-        transparent: true,
-        opacity: 0.6
-    });
-    const land = new THREE.Mesh(landGeometry, landMaterial);
-    land.rotation.y = Math.PI / 4;
-    scene.add(land);
+    // REMOVED THE GREEN LAND OVERLAY - that was causing the green color!
     
     // Add clouds
     const cloudGeometry = new THREE.SphereGeometry(1.03, 64, 64);
@@ -231,18 +268,29 @@ function createEarthGlobe() {
     clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
     scene.add(clouds);
     
+    // Add atmosphere effect
+    const atmosphereGeometry = new THREE.SphereGeometry(1.06, 32, 32);
+    const atmosphereMaterial = new THREE.MeshPhongMaterial({
+        color: 0x87ceeb,
+        transparent: true,
+        opacity: 0.08,
+        side: THREE.BackSide
+    });
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    scene.add(atmosphere);
+    
     // Add lights
-    const ambientLight = new THREE.AmbientLight(0x333333);
+    const ambientLight = new THREE.AmbientLight(0x333333, 0.6);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
     directionalLight.position.set(5, 3, 5);
     scene.add(directionalLight);
     
-    // Add a subtle point light
-    const pointLight = new THREE.PointLight(0xffffff, 0.3, 100);
-    pointLight.position.set(10, 10, 10);
-    scene.add(pointLight);
+    // Add fill light from opposite side
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    fillLight.position.set(-3, -1, -2);
+    scene.add(fillLight);
 }
 
 function addMarker(memory) {
@@ -411,13 +459,6 @@ function renderMemoriesList() {
         memoryItem.className = 'memory-item';
         memoryItem.dataset.id = memory.id;
         
-        const dateObj = new Date(memory.date);
-        const formattedDate = dateObj.toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        });
-        
         // Truncate text if too long
         const memoryText = memory.text.length > 120 
             ? memory.text.substring(0, 120) + '...' 
@@ -428,7 +469,13 @@ function renderMemoriesList() {
                 <i class="fas fa-trash"></i>
             </div>
             <div class="memory-location">${memory.location}</div>
-            <div class="memory-date">${formattedDate}</div>
+            <div class="memory-date">
+                <i class="far fa-calendar"></i>
+                ${formatRelativeDateChicago(memory.date)}
+                <span style="font-size: 0.8rem; margin-left: 8px; opacity: 0.8">
+                    (${formatChicagoDate(memory.date)})
+                </span>
+            </div>
             <div class="memory-text">${memoryText}</div>
         `;
         
@@ -609,41 +656,271 @@ document.getElementById('memoryForm').addEventListener('submit', function(e) {
     
     // Reset form
     document.getElementById('memoryForm').reset();
-    document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('date').value = getChicagoToday(); // FIXED: Use Chicago date
     
     // Show success message
     alert(`Memory added for ${locationInput}! Look for the new marker on the globe.`);
 });
 
-// Mock geocoding function
+// Improved geocoding function with real coordinates for major cities
 function geocodeLocation(location) {
-    // Mock coordinates for popular locations
-    const locationMap = {
-        'paris, france': { lat: 48.8566, lng: 2.3522 },
-        'tokyo, japan': { lat: 35.6762, lng: 139.6503 },
+    // Comprehensive location database with real coordinates
+    const locationDatabase = {
+        // USA Cities
         'new york, usa': { lat: 40.7128, lng: -74.0060 },
+        'chicago, usa': { lat: 41.8781, lng: -87.6298 },
+        'los angeles, usa': { lat: 34.0522, lng: -118.2437 },
+        'miami, usa': { lat: 25.7617, lng: -80.1918 },
+        'las vegas, usa': { lat: 36.1699, lng: -115.1398 },
+        'san francisco, usa': { lat: 37.7749, lng: -122.4194 },
+        'washington dc, usa': { lat: 38.9072, lng: -77.0369 },
+        'boston, usa': { lat: 42.3601, lng: -71.0589 },
+        'seattle, usa': { lat: 47.6062, lng: -122.3321 },
+        'houston, usa': { lat: 29.7604, lng: -95.3698 },
+        
+        // European Cities
+        'paris, france': { lat: 48.8566, lng: 2.3522 },
         'london, uk': { lat: 51.5074, lng: -0.1278 },
-        'sydney, australia': { lat: -33.8688, lng: 151.2093 },
-        'cairo, egypt': { lat: 30.0444, lng: 31.2357 },
-        'rio de janeiro, brazil': { lat: -22.9068, lng: -43.1729 },
-        'beijing, china': { lat: 39.9042, lng: 116.4074 },
-        'moscow, russia': { lat: 55.7558, lng: 37.6173 },
-        'mumbai, india': { lat: 19.0760, lng: 72.8777 },
         'rome, italy': { lat: 41.9028, lng: 12.4964 },
         'berlin, germany': { lat: 52.5200, lng: 13.4050 },
         'madrid, spain': { lat: 40.4168, lng: -3.7038 },
+        'barcelona, spain': { lat: 41.3851, lng: 2.1734 },
+        'amsterdam, netherlands': { lat: 52.3676, lng: 4.9041 },
+        'prague, czech republic': { lat: 50.0755, lng: 14.4378 },
+        'vienna, austria': { lat: 48.2082, lng: 16.3738 },
+        'athens, greece': { lat: 37.9838, lng: 23.7275 },
+        'lisbon, portugal': { lat: 38.7223, lng: -9.1393 },
+        'dublin, ireland': { lat: 53.3498, lng: -6.2603 },
+        'edinburgh, uk': { lat: 55.9533, lng: -3.1883 },
+        
+        // Asian Cities
+        'tokyo, japan': { lat: 35.6762, lng: 139.6503 },
+        'beijing, china': { lat: 39.9042, lng: 116.4074 },
+        'shanghai, china': { lat: 31.2304, lng: 121.4737 },
+        'hong kong, china': { lat: 22.3193, lng: 114.1694 },
+        'singapore, singapore': { lat: 1.3521, lng: 103.8198 },
+        'bangkok, thailand': { lat: 13.7563, lng: 100.5018 },
+        'seoul, south korea': { lat: 37.5665, lng: 126.9780 },
+        'taipei, taiwan': { lat: 25.0330, lng: 121.5654 },
+        'mumbai, india': { lat: 19.0760, lng: 72.8777 },
+        'delhi, india': { lat: 28.7041, lng: 77.1025 },
+        'bangalore, india': { lat: 12.9716, lng: 77.5946 },
+        'cebu, philippines': { lat: 10.3157, lng: 123.8854 },
+        'batangas, philippines': { lat: 13.7569, lng: 121.0583 },
+        'manila, philippines': { lat: 14.5995, lng: 120.9842 },
+        
+        // Australian Cities
+        'sydney, australia': { lat: -33.8688, lng: 151.2093 },
+        'melbourne, australia': { lat: -37.8136, lng: 144.9631 },
+        'brisbane, australia': { lat: -27.4698, lng: 153.0251 },
+        'perth, australia': { lat: -31.9505, lng: 115.8605 },
+        
+        // South American Cities
+        'rio de janeiro, brazil': { lat: -22.9068, lng: -43.1729 },
+        'sao paulo, brazil': { lat: -23.5505, lng: -46.6333 },
+        'buenos aires, argentina': { lat: -34.6037, lng: -58.3816 },
+        'lima, peru': { lat: -12.0464, lng: -77.0428 },
+        'bogota, colombia': { lat: 4.7110, lng: -74.0721 },
+        'santiago, chile': { lat: -33.4489, lng: -70.6693 },
+        
+        // African Cities
+        'cairo, egypt': { lat: 30.0444, lng: 31.2357 },
+        'cape town, south africa': { lat: -33.9249, lng: 18.4241 },
+        'nairobi, kenya': { lat: -1.2864, lng: 36.8172 },
+        'lagos, nigeria': { lat: 6.5244, lng: 3.3792 },
+        'marrakech, morocco': { lat: 31.6295, lng: -7.9811 },
+        
+        // Middle Eastern Cities
+        'tel aviv, israel': { lat: 32.0853, lng: 34.7818 },
+        'istanbul, turkey': { lat: 41.0082, lng: 28.9784 },
+        'tehran, iran': { lat: 35.6892, lng: 51.3890 },
+        'doha, qatar': { lat: 25.2854, lng: 51.5310 },
+        'riyadh, saudi arabia': { lat: 24.7136, lng: 46.6753 },
+        'dubai, uae': { lat: 25.2048, lng: 55.2708 },
+        
+        // Canadian Cities
         'toronto, canada': { lat: 43.6510, lng: -79.3470 },
-        'mexico city, mexico': { lat: 19.4326, lng: -99.1332 }
+        'vancouver, canada': { lat: 49.2827, lng: -123.1207 },
+        'montreal, canada': { lat: 45.5017, lng: -73.5673 },
+        'calgary, canada': { lat: 51.0447, lng: -114.0719 },
+        'ottawa, canada': { lat: 45.4215, lng: -75.6998 },
+        
+        // Mexican Cities
+        'mexico city, mexico': { lat: 19.4326, lng: -99.1332 },
+        'cancun, mexico': { lat: 21.1619, lng: -86.8515 },
+        
+        // Russian Cities
+        'moscow, russia': { lat: 55.7558, lng: 37.6173 },
+        'saint petersburg, russia': { lat: 59.9343, lng: 30.3351 },
+        
+        // Caribbean Cities
+        'havana, cuba': { lat: 23.1136, lng: -82.3666 },
+        'kingston, jamaica': { lat: 17.9714, lng: -76.7922 },
+        
+        // Additional Major Cities
+        'jakarta, indonesia': { lat: -6.2088, lng: 106.8456 },
+        'manila, philippines': { lat: 14.5995, lng: 120.9842 },
+        'ho chi minh city, vietnam': { lat: 10.8231, lng: 106.6297 },
+        'kuala lumpur, malaysia': { lat: 3.1390, lng: 101.6869 },
+        'osaka, japan': { lat: 34.6937, lng: 135.5023 },
+        'kyoto, japan': { lat: 35.0116, lng: 135.7681 },
+        'venice, italy': { lat: 45.4408, lng: 12.3155 },
+        'florence, italy': { lat: 43.7696, lng: 11.2558 },
+        'milan, italy': { lat: 45.4642, lng: 9.1900 },
+        'zurich, switzerland': { lat: 47.3769, lng: 8.5417 },
+        'geneva, switzerland': { lat: 46.2044, lng: 6.1432 },
+        'brussels, belgium': { lat: 50.8503, lng: 4.3517 },
+        'copenhagen, denmark': { lat: 55.6761, lng: 12.5683 },
+        'stockholm, sweden': { lat: 59.3293, lng: 18.0686 },
+        'helsinki, finland': { lat: 60.1699, lng: 24.9384 },
+        'oslo, norway': { lat: 59.9139, lng: 10.7522 },
+        'reykjavik, iceland': { lat: 64.1466, lng: -21.9426 },
+        'warsaw, poland': { lat: 52.2297, lng: 21.0122 },
+        'budapest, hungary': { lat: 47.4979, lng: 19.0402 },
+        'bucharest, romania': { lat: 44.4268, lng: 26.1025 }
     };
     
-    const normalizedLocation = location.toLowerCase();
-    if (locationMap[normalizedLocation]) {
-        return locationMap[normalizedLocation];
+    // Normalize the input
+    const normalizedLocation = location.toLowerCase().trim();
+    
+    // Try exact match first
+    if (locationDatabase[normalizedLocation]) {
+        return locationDatabase[normalizedLocation];
     }
     
-    // Generate random coordinates for unknown locations
+    // Try matching just the city name (without country)
+    const cityName = normalizedLocation.split(',')[0].trim();
+    for (const key in locationDatabase) {
+        if (key.startsWith(cityName + ',')) {
+            return locationDatabase[key];
+        }
+    }
+    
+    // Try fuzzy matching for common variations
+    const commonVariations = {
+        'nyc': 'new york, usa',
+        'new york city': 'new york, usa',
+        'la': 'los angeles, usa',
+        'san fran': 'san francisco, usa',
+        'dc': 'washington dc, usa',
+        'sf': 'san francisco, usa',
+        'chi': 'chicago, usa',
+        'mia': 'miami, usa',
+        'lax': 'los angeles, usa',
+        'lon': 'london, uk',
+        'ldn': 'london, uk',
+        'par': 'paris, france',
+        'rom': 'rome, italy',
+        'ber': 'berlin, germany',
+        'mad': 'madrid, spain',
+        'bar': 'barcelona, spain',
+        'ams': 'amsterdam, netherlands',
+        'pra': 'prague, czech republic',
+        'vie': 'vienna, austria',
+        'ath': 'athens, greece',
+        'lis': 'lisbon, portugal',
+        'dub': 'dublin, ireland',
+        'edi': 'edinburgh, uk',
+        'tok': 'tokyo, japan',
+        'pek': 'beijing, china',
+        'sha': 'shanghai, china',
+        'hk': 'hong kong, china',
+        'sin': 'singapore, singapore',
+        'bkk': 'bangkok, thailand',
+        'sel': 'seoul, south korea',
+        'tpe': 'taipei, taiwan',
+        'bom': 'mumbai, india',
+        'del': 'delhi, india',
+        'blr': 'bangalore, india',
+        'dxb': 'dubai, uae',
+        'syd': 'sydney, australia',
+        'mel': 'melbourne, australia',
+        'bne': 'brisbane, australia',
+        'per': 'perth, australia',
+        'rio': 'rio de janeiro, brazil',
+        'sao': 'sao paulo, brazil',
+        'bue': 'buenos aires, argentina',
+        'lim': 'lima, peru',
+        'bog': 'bogota, colombia',
+        'scl': 'santiago, chile',
+        'cai': 'cairo, egypt',
+        'cpt': 'cape town, south africa',
+        'nbo': 'nairobi, kenya',
+        'los': 'lagos, nigeria',
+        'rak': 'marrakech, morocco',
+        'tlv': 'tel aviv, israel',
+        'ist': 'istanbul, turkey',
+        'thr': 'tehran, iran',
+        'yyz': 'toronto, canada',
+        'yvr': 'vancouver, canada',
+        'yul': 'montreal, canada',
+        'yyc': 'calgary, canada',
+        'mex': 'mexico city, mexico',
+        'cun': 'cancun, mexico',
+        'svx': 'moscow, russia',
+        'led': 'saint petersburg, russia',
+        'hav': 'havana, cuba',
+        'kin': 'kingston, jamaica',
+        'cgk': 'jakarta, indonesia',
+        'mnl': 'manila, philippines',
+        'sgn': 'ho chi minh city, vietnam',
+        'kul': 'kuala lumpur, malaysia',
+        'kix': 'osaka, japan',
+        'ngo': 'kyoto, japan',
+        'vce': 'venice, italy',
+        'flr': 'florence, italy',
+        'mxp': 'milan, italy',
+        'zrh': 'zurich, switzerland',
+        'gva': 'geneva, switzerland',
+        'bru': 'brussels, belgium',
+        'cph': 'copenhagen, denmark',
+        'arn': 'stockholm, sweden',
+        'hel': 'helsinki, finland',
+        'osl': 'oslo, norway',
+        'kef': 'reykjavik, iceland',
+        'waw': 'warsaw, poland',
+        'bud': 'budapest, hungary',
+        'otp': 'bucharest, romania'
+    };
+    
+    if (commonVariations[normalizedLocation]) {
+        return locationDatabase[commonVariations[normalizedLocation]];
+    }
+    
+    // If no match found, try to estimate coordinates based on country
+    const countryMatch = normalizedLocation.match(/, ([a-z\s]+)$/);
+    if (countryMatch) {
+        const country = countryMatch[1].trim();
+        const countryCoordinates = {
+            'usa': { lat: 39.8283, lng: -98.5795 }, // Center of USA
+            'france': { lat: 46.2276, lng: 2.2137 },
+            'uk': { lat: 55.3781, lng: -3.4360 },
+            'italy': { lat: 41.8719, lng: 12.5674 },
+            'germany': { lat: 51.1657, lng: 10.4515 },
+            'spain': { lat: 40.4637, lng: -3.7492 },
+            'japan': { lat: 36.2048, lng: 138.2529 },
+            'china': { lat: 35.8617, lng: 104.1954 },
+            'australia': { lat: -25.2744, lng: 133.7751 },
+            'brazil': { lat: -14.2350, lng: -51.9253 },
+            'canada': { lat: 56.1304, lng: -106.3468 },
+            'india': { lat: 20.5937, lng: 78.9629 },
+            'russia': { lat: 61.5240, lng: 105.3188 },
+            'mexico': { lat: 23.6345, lng: -102.5528 }
+        };
+        
+        if (countryCoordinates[country]) {
+            // Add some random offset so markers don't stack exactly in center
+            return {
+                lat: countryCoordinates[country].lat + (Math.random() * 10 - 5),
+                lng: countryCoordinates[country].lng + (Math.random() * 10 - 5)
+            };
+        }
+    }
+    
+    // Last resort: random coordinates but weighted toward populated areas
+    // Most of the world's population lives between 60°N and 40°S
     return {
-        lat: (Math.random() * 160) - 80, // Between -80 and 80
+        lat: (Math.random() * 100) - 40, // Between -40 and 60
         lng: (Math.random() * 360) - 180 // Between -180 and 180
     };
 }
@@ -654,15 +931,21 @@ function updateStats() {
     document.getElementById('memoriesCount').textContent = memories.length;
     
     if (memories.length > 0) {
-        const dates = memories.map(m => new Date(m.date));
-        const oldestDate = new Date(Math.min(...dates));
-        const latestDate = new Date(Math.max(...dates));
+        // Calculate dates in Chicago time
+        const chicagoDates = memories.map(m => {
+            const date = new Date(m.date + 'T12:00:00');
+            return new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+        });
+        
+        const oldestDate = new Date(Math.min(...chicagoDates));
+        const latestDate = new Date(Math.max(...chicagoDates));
         
         document.getElementById('firstMemory').textContent = oldestDate.getFullYear();
         
-        // Format latest memory date
+        // Format latest memory date in Chicago time
         const now = new Date();
-        const diffTime = Math.abs(now - latestDate);
+        const chicagoNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+        const diffTime = Math.abs(chicagoNow - latestDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         if (diffDays === 0) {
@@ -686,11 +969,10 @@ function updateStats() {
 // Control button handlers
 document.getElementById('rotateToggle').addEventListener('click', function() {
     isRotating = !isRotating;
-    const icon = this.querySelector('i');
     if (isRotating) {
         this.innerHTML = '<i class="fas fa-pause"></i> Pause Rotation';
     } else {
-        this.innerHTML = '<i class="fas fa-play"></i> Resume Rotation';
+        this.innerHTML = '<i class="fas fa-play"></i> Start Rotation';
     }
 });
 
@@ -808,49 +1090,6 @@ function importMemories(event) {
 function initApp() {
     loadMemories();
     initGlobe();
-    
-    // Add event listeners for form
-    document.getElementById('memoryForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const location = document.getElementById('location').value.trim();
-        const date = document.getElementById('date').value;
-        const memoryText = document.getElementById('memory').value.trim();
-        
-        if (!location || !date || !memoryText) {
-            alert('Please fill in all fields');
-            return;
-        }
-        
-        const geocodedLocation = geocodeLocation(location);
-        const newId = memories.length > 0 ? Math.max(...memories.map(m => m.id)) + 1 : 1;
-        
-        const newMemory = {
-            id: newId,
-            location: location,
-            lat: geocodedLocation.lat,
-            lng: geocodedLocation.lng,
-            date: date,
-            text: memoryText
-        };
-        
-        memories.push(newMemory);
-        saveMemories();
-        
-        const locationParts = location.split(', ');
-        if (locationParts.length > 1) {
-            countriesVisited.add(locationParts[1]);
-        }
-        
-        addMarker(newMemory);
-        updateStats();
-        renderMemoriesList();
-        
-        document.getElementById('memoryForm').reset();
-        document.getElementById('date').valueAsDate = new Date();
-        
-        alert(`Memory added for ${location}! Look for the new marker on the globe.`);
-    });
 }
 
 // Start the app when DOM is loaded
