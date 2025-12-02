@@ -6,12 +6,13 @@ document.getElementById('currentYear').textContent = new Date().getFullYear();
 // Set today's date as default in the form
 document.getElementById('date').valueAsDate = new Date();
 
-// Sample memories data (initially empty, will be loaded from localStorage)
+// Variables
 let memories = [];
 let markers = [];
 let isRotating = true;
 let markersVisible = true;
 let countriesVisited = new Set();
+let memoryToDelete = null;
 
 // Three.js variables
 let scene, camera, renderer, globe, controls, clouds;
@@ -70,18 +71,12 @@ function saveMemories() {
 
 // Initialize the globe
 function initGlobe() {
-    // Remove loading overlay
-    const loadingOverlay = document.querySelector('.loading-overlay');
-    if (loadingOverlay) {
-        setTimeout(() => {
-            loadingOverlay.style.opacity = '0';
-            setTimeout(() => loadingOverlay.remove(), 500);
-        }, 1000);
-    }
+    // Create loading overlay
+    addLoadingOverlay();
     
     // Scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a1929);
+    scene.background = new THREE.Color(0x0a0e17);
     
     // Add stars
     addStars();
@@ -90,8 +85,8 @@ function initGlobe() {
     camera = new THREE.PerspectiveCamera(75, 
         document.getElementById('globeCanvas').clientWidth / 
         document.getElementById('globeCanvas').clientHeight, 
-        0.1, 1000);
-    camera.position.z = 2.5;
+        0.1, 2000);
+    camera.position.z = 3;
     
     // Renderer
     renderer = new THREE.WebGLRenderer({ 
@@ -109,12 +104,12 @@ function initGlobe() {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.rotateSpeed = 0.5;
+    controls.rotateSpeed = 0.8;
     controls.minDistance = 1.5;
-    controls.maxDistance = 5;
+    controls.maxDistance = 8;
     
     // Create the globe
-    createGlobe();
+    createEarthGlobe();
     
     // Add markers for existing memories
     memories.forEach(memory => {
@@ -132,6 +127,19 @@ function initGlobe() {
     // Add mouse events for marker interaction
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('click', onCanvasClick);
+    
+    // Remove loading overlay after everything is loaded
+    setTimeout(() => {
+        const loadingOverlay = document.querySelector('.loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.parentNode.removeChild(loadingOverlay);
+                }
+            }, 500);
+        }
+    }, 1500);
     
     // Render loop
     animate();
@@ -155,7 +163,7 @@ function addStars() {
     
     const starMaterial = new THREE.PointsMaterial({
         color: 0xffffff,
-        size: 0.7,
+        size: 0.8,
         sizeAttenuation: true
     });
     
@@ -163,53 +171,78 @@ function addStars() {
     scene.add(stars);
 }
 
-function createGlobe() {
-    // Earth geometry
+// Create Earth with texture
+function createEarthGlobe() {
+    // Create sphere
     const geometry = new THREE.SphereGeometry(1, 64, 64);
     
-    // Earth material (using basic colors for demo - no external textures)
+    // Try to load Earth texture
+    const textureLoader = new THREE.TextureLoader();
+    
+    // Create a colored Earth as fallback
     const earthMaterial = new THREE.MeshPhongMaterial({
         color: 0x2a5c8a,
         specular: new THREE.Color(0x333333),
-        shininess: 5,
+        shininess: 10,
         transparent: true,
         opacity: 0.95
     });
+    
+    // Try to load actual Earth texture
+    try {
+        const earthTexture = textureLoader.load(
+            'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
+            () => {
+                console.log('Earth texture loaded');
+                earthMaterial.map = earthTexture;
+                earthMaterial.needsUpdate = true;
+            },
+            undefined,
+            (error) => {
+                console.log('Using colored Earth instead:', error);
+            }
+        );
+    } catch (error) {
+        console.log('Using colored Earth texture');
+    }
     
     // Earth mesh
     globe = new THREE.Mesh(geometry, earthMaterial);
     scene.add(globe);
     
-    // Add land masses with a different color
+    // Add land masses
     const landGeometry = new THREE.SphereGeometry(1.01, 64, 64);
     const landMaterial = new THREE.MeshPhongMaterial({
         color: 0x3a8c5a,
         transparent: true,
-        opacity: 0.7
+        opacity: 0.6
     });
     const land = new THREE.Mesh(landGeometry, landMaterial);
-    
-    // Create simple land shapes (in a real app, you'd use proper geography data)
+    land.rotation.y = Math.PI / 4;
     scene.add(land);
     
-    // Add clouds layer
-    const cloudGeometry = new THREE.SphereGeometry(1.05, 64, 64);
+    // Add clouds
+    const cloudGeometry = new THREE.SphereGeometry(1.03, 64, 64);
     const cloudMaterial = new THREE.MeshPhongMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.2
+        opacity: 0.15
     });
     clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
     scene.add(clouds);
     
-    // Add ambient light
+    // Add lights
     const ambientLight = new THREE.AmbientLight(0x333333);
     scene.add(ambientLight);
     
-    // Add directional light (sun)
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 3, 5);
     scene.add(directionalLight);
+    
+    // Add a subtle point light
+    const pointLight = new THREE.PointLight(0xffffff, 0.3, 100);
+    pointLight.position.set(10, 10, 10);
+    scene.add(pointLight);
 }
 
 function addMarker(memory) {
@@ -219,36 +252,58 @@ function addMarker(memory) {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
     
-    const radius = 1.06;
+    const radius = 1.05;
     const x = - (radius * Math.sin(phi) * Math.cos(theta));
     const y = (radius * Math.cos(phi));
     const z = (radius * Math.sin(phi) * Math.sin(theta));
     
+    // Create marker group
+    const markerGroup = new THREE.Group();
+    
     // Create marker (a small colored sphere)
-    const markerGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+    const markerGeometry = new THREE.SphereGeometry(0.025, 16, 16);
     const markerMaterial = new THREE.MeshBasicMaterial({ 
         color: getMarkerColor(memory.id)
     });
     const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-    marker.position.set(x, y, z);
-    marker.userData = memory;
+    marker.position.set(0, 0, 0);
+    
+    // Create glowing effect
+    const glowGeometry = new THREE.SphereGeometry(0.04, 16, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: getMarkerColor(memory.id),
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     
     // Add pulsing animation
-    let scale = 1;
-    function pulse() {
-        scale = scale === 1 ? 1.3 : 1;
-        marker.scale.setScalar(scale);
-        setTimeout(pulse, 1000);
+    let pulseDirection = 0.01;
+    function animateGlow() {
+        if (glow.scale.x > 1.5 || glow.scale.x < 1) {
+            pulseDirection *= -1;
+        }
+        glow.scale.x += pulseDirection;
+        glow.scale.y += pulseDirection;
+        glow.scale.z += pulseDirection;
+        requestAnimationFrame(animateGlow);
     }
-    pulse();
+    animateGlow();
     
-    scene.add(marker);
-    markers.push(marker);
+    markerGroup.add(marker);
+    markerGroup.add(glow);
+    markerGroup.position.set(x, y, z);
+    markerGroup.userData = memory;
+    markerGroup.userData.marker = marker;
+    markerGroup.userData.glow = glow;
     
-    // Add a line from marker to surface
+    scene.add(markerGroup);
+    markers.push(markerGroup);
+    
+    // Add a line connecting marker to Earth
     const lineGeometry = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(x, y, z),
-        new THREE.Vector3(x * 0.95, y * 0.95, z * 0.95)
+        new THREE.Vector3(x * 0.97, y * 0.97, z * 0.97)
     ]);
     const lineMaterial = new THREE.LineBasicMaterial({ 
         color: getMarkerColor(memory.id),
@@ -257,9 +312,7 @@ function addMarker(memory) {
     });
     const line = new THREE.Line(lineGeometry, lineMaterial);
     scene.add(line);
-    
-    // Store reference to line in marker
-    marker.userData.line = line;
+    markerGroup.userData.line = line;
 }
 
 function getMarkerColor(id) {
@@ -270,7 +323,9 @@ function getMarkerColor(id) {
         0x00f2fe, // Cyan
         0x7cfc00, // Green
         0xffa500, // Orange
-        0x9370db  // Purple
+        0x9370db, // Purple
+        0xff6b6b, // Coral
+        0x51cf66  // Bright Green
     ];
     return colors[id % colors.length];
 }
@@ -289,14 +344,14 @@ function onMouseMove(event) {
     
     // Reset hover effect on previous marker
     if (hoveredMarker) {
-        hoveredMarker.material.color.set(getMarkerColor(hoveredMarker.userData.id));
+        hoveredMarker.userData.marker.material.color.set(getMarkerColor(hoveredMarker.userData.id));
         document.body.style.cursor = 'default';
     }
     
     // Check for new hover
     if (intersects.length > 0) {
-        hoveredMarker = intersects[0].object;
-        hoveredMarker.material.color.set(0xffff00); // Highlight color
+        hoveredMarker = intersects[0].object.parent; // Get the marker group
+        hoveredMarker.userData.marker.material.color.set(0xffff00); // Highlight color
         document.body.style.cursor = 'pointer';
     } else {
         hoveredMarker = null;
@@ -338,8 +393,11 @@ function renderMemoriesList() {
     
     if (memories.length === 0) {
         memoriesList.innerHTML = `
-            <div class="no-memories">
-                <p>No memories yet. Add your first travel memory using the form below!</p>
+            <div class="no-memories" style="text-align: center; padding: 40px; color: #88c1ff;">
+                <i class="fas fa-map-marker-alt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                <h3 style="color: #4facfe; margin-bottom: 10px;">No Memories Yet</h3>
+                <p>Add your first travel memory using the form below!</p>
+                <p style="font-size: 0.9rem; margin-top: 10px; opacity: 0.8;">Click "Add Memory to Globe" to get started.</p>
             </div>
         `;
         return;
@@ -361,58 +419,138 @@ function renderMemoriesList() {
         });
         
         // Truncate text if too long
-        const memoryText = memory.text.length > 150 
-            ? memory.text.substring(0, 150) + '...' 
+        const memoryText = memory.text.length > 120 
+            ? memory.text.substring(0, 120) + '...' 
             : memory.text;
         
         memoryItem.innerHTML = `
+            <div class="delete-memory" data-id="${memory.id}">
+                <i class="fas fa-trash"></i>
+            </div>
             <div class="memory-location">${memory.location}</div>
             <div class="memory-date">${formattedDate}</div>
             <div class="memory-text">${memoryText}</div>
         `;
         
         // Add click event to focus on marker
-        memoryItem.addEventListener('click', () => {
-            displayMemory(memory);
-            
-            // Find and animate to the marker
-            const marker = markers.find(m => m.userData.id === memory.id);
-            if (marker) {
-                new TWEEN.Tween(camera.position)
-                    .to({
-                        x: marker.position.x * 1.8,
-                        y: marker.position.y * 1.8,
-                        z: marker.position.z * 1.8
-                    }, 1000)
-                    .easing(TWEEN.Easing.Quadratic.Out)
-                    .start();
+        memoryItem.addEventListener('click', (e) => {
+            // Don't trigger if delete button was clicked
+            if (!e.target.closest('.delete-memory')) {
+                displayMemory(memory);
+                
+                // Find and animate to the marker
+                const marker = markers.find(m => m.userData.id === memory.id);
+                if (marker) {
+                    new TWEEN.Tween(camera.position)
+                        .to({
+                            x: marker.position.x * 1.8,
+                            y: marker.position.y * 1.8,
+                            z: marker.position.z * 1.8
+                        }, 1000)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
+                }
             }
+        });
+        
+        // Add delete button event
+        const deleteBtn = memoryItem.querySelector('.delete-memory');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent memory click event
+            showDeleteModal(memory);
         });
         
         memoriesList.appendChild(memoryItem);
     });
 }
 
+function showDeleteModal(memory) {
+    memoryToDelete = memory;
+    const modal = document.getElementById('deleteModal');
+    modal.style.display = 'flex';
+}
+
+function hideDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.style.display = 'none';
+    memoryToDelete = null;
+}
+
+// DELETE FUNCTIONALITY
+function deleteMemory() {
+    if (!memoryToDelete) return;
+    
+    const memoryId = memoryToDelete.id;
+    
+    // Remove from memories array
+    memories = memories.filter(m => m.id !== memoryId);
+    
+    // Remove marker from scene
+    const markerIndex = markers.findIndex(m => m.userData.id === memoryId);
+    if (markerIndex !== -1) {
+        const marker = markers[markerIndex];
+        scene.remove(marker);
+        
+        // Remove line if it exists
+        if (marker.userData.line) {
+            scene.remove(marker.userData.line);
+        }
+        
+        // Remove glow if it exists
+        if (marker.userData.glow) {
+            scene.remove(marker.userData.glow);
+        }
+        
+        markers.splice(markerIndex, 1);
+    }
+    
+    // Update countries visited
+    countriesVisited.clear();
+    memories.forEach(memory => {
+        const locationParts = memory.location.split(', ');
+        if (locationParts.length > 1) {
+            countriesVisited.add(locationParts[1]);
+        }
+    });
+    
+    // Save to localStorage
+    saveMemories();
+    
+    // Update UI
+    updateStats();
+    renderMemoriesList();
+    
+    // Hide modal
+    hideDeleteModal();
+    
+    // Show confirmation
+    alert(`Memory for ${memoryToDelete.location} has been deleted.`);
+}
+
 function animate() {
     requestAnimationFrame(animate);
     
     // Rotate the globe if auto-rotation is enabled
-    if (isRotating) {
+    if (isRotating && globe) {
         globe.rotation.y += 0.001;
-        clouds.rotation.y += 0.0005;
+        if (clouds) clouds.rotation.y += 0.0005;
     }
     
     // Update controls
-    controls.update();
+    if (controls) controls.update();
     
     // Update Tween animations
     TWEEN.update();
     
     // Render
-    renderer.render(scene, camera);
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
 }
 
 function onWindowResize() {
+    if (!camera || !renderer) return;
+    
     camera.aspect = document.getElementById('globeCanvas').clientWidth / 
                    document.getElementById('globeCanvas').clientHeight;
     camera.updateProjectionMatrix();
@@ -435,12 +573,14 @@ document.getElementById('memoryForm').addEventListener('submit', function(e) {
         return;
     }
     
-    // Geocode the location (simplified - using mock coordinates)
-    // In a real app, you'd use a geocoding API like Google Maps or OpenStreetMap
+    // Geocode the location
     const geocodedLocation = geocodeLocation(locationInput);
     
+    // Generate new ID
+    const newId = memories.length > 0 ? Math.max(...memories.map(m => m.id)) + 1 : 1;
+    
     const newMemory = {
-        id: memories.length > 0 ? Math.max(...memories.map(m => m.id)) + 1 : 1,
+        id: newId,
         location: locationInput,
         lat: geocodedLocation.lat,
         lng: geocodedLocation.lng,
@@ -475,7 +615,7 @@ document.getElementById('memoryForm').addEventListener('submit', function(e) {
     alert(`Memory added for ${locationInput}! Look for the new marker on the globe.`);
 });
 
-// Mock geocoding function (in a real app, replace with actual geocoding API)
+// Mock geocoding function
 function geocodeLocation(location) {
     // Mock coordinates for popular locations
     const locationMap = {
@@ -486,7 +626,14 @@ function geocodeLocation(location) {
         'sydney, australia': { lat: -33.8688, lng: 151.2093 },
         'cairo, egypt': { lat: 30.0444, lng: 31.2357 },
         'rio de janeiro, brazil': { lat: -22.9068, lng: -43.1729 },
-        'beijing, china': { lat: 39.9042, lng: 116.4074 }
+        'beijing, china': { lat: 39.9042, lng: 116.4074 },
+        'moscow, russia': { lat: 55.7558, lng: 37.6173 },
+        'mumbai, india': { lat: 19.0760, lng: 72.8777 },
+        'rome, italy': { lat: 41.9028, lng: 12.4964 },
+        'berlin, germany': { lat: 52.5200, lng: 13.4050 },
+        'madrid, spain': { lat: 40.4168, lng: -3.7038 },
+        'toronto, canada': { lat: 43.6510, lng: -79.3470 },
+        'mexico city, mexico': { lat: 19.4326, lng: -99.1332 }
     };
     
     const normalizedLocation = location.toLowerCase();
@@ -509,22 +656,48 @@ function updateStats() {
     if (memories.length > 0) {
         const dates = memories.map(m => new Date(m.date));
         const oldestDate = new Date(Math.min(...dates));
+        const latestDate = new Date(Math.max(...dates));
+        
         document.getElementById('firstMemory').textContent = oldestDate.getFullYear();
+        
+        // Format latest memory date
+        const now = new Date();
+        const diffTime = Math.abs(now - latestDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            document.getElementById('latestMemory').textContent = 'Today';
+        } else if (diffDays === 1) {
+            document.getElementById('latestMemory').textContent = 'Yesterday';
+        } else if (diffDays < 30) {
+            document.getElementById('latestMemory').textContent = `${diffDays}d ago`;
+        } else if (diffDays < 365) {
+            const diffMonths = Math.floor(diffDays / 30);
+            document.getElementById('latestMemory').textContent = `${diffMonths}mo ago`;
+        } else {
+            document.getElementById('latestMemory').textContent = latestDate.getFullYear();
+        }
     } else {
         document.getElementById('firstMemory').textContent = '--';
+        document.getElementById('latestMemory').textContent = '--';
     }
 }
 
 // Control button handlers
 document.getElementById('rotateToggle').addEventListener('click', function() {
     isRotating = !isRotating;
-    this.textContent = isRotating ? 'Pause Rotation' : 'Resume Rotation';
+    const icon = this.querySelector('i');
+    if (isRotating) {
+        this.innerHTML = '<i class="fas fa-pause"></i> Pause Rotation';
+    } else {
+        this.innerHTML = '<i class="fas fa-play"></i> Resume Rotation';
+    }
 });
 
 document.getElementById('resetView').addEventListener('click', function() {
     // Reset camera position
     new TWEEN.Tween(camera.position)
-        .to({ x: 0, y: 0, z: 2.5 }, 1000)
+        .to({ x: 0, y: 0, z: 3 }, 1000)
         .easing(TWEEN.Easing.Quadratic.Out)
         .start();
         
@@ -534,14 +707,44 @@ document.getElementById('resetView').addEventListener('click', function() {
 
 document.getElementById('toggleMarkers').addEventListener('click', function() {
     markersVisible = !markersVisible;
-    this.textContent = markersVisible ? 'Hide Markers' : 'Show Markers';
+    if (markersVisible) {
+        this.innerHTML = '<i class="fas fa-map-marker-alt"></i> Hide Markers';
+    } else {
+        this.innerHTML = '<i class="fas fa-map-marker-alt"></i> Show Markers';
+    }
     
     markers.forEach(marker => {
         marker.visible = markersVisible;
         if (marker.userData.line) {
             marker.userData.line.visible = markersVisible;
         }
+        if (marker.userData.glow) {
+            marker.userData.glow.visible = markersVisible;
+        }
     });
+});
+
+document.getElementById('exportData').addEventListener('click', function() {
+    exportMemories();
+});
+
+document.getElementById('importBtn').addEventListener('click', function() {
+    document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', function(e) {
+    importMemories(e);
+});
+
+// Modal event handlers for DELETE
+document.getElementById('confirmDelete').addEventListener('click', deleteMemory);
+document.getElementById('cancelDelete').addEventListener('click', hideDeleteModal);
+
+// Close modal when clicking outside
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideDeleteModal();
+    }
 });
 
 // Add loading overlay to HTML
@@ -550,17 +753,104 @@ function addLoadingOverlay() {
     overlay.className = 'loading-overlay';
     overlay.innerHTML = `
         <div class="loading-spinner"></div>
-        <h2>Loading Travel Memory Globe</h2>
+        <h2>Loading Divine's Travel Memory Globe</h2>
         <p>Initializing 3D globe and loading your memories...</p>
     `;
     document.body.appendChild(overlay);
 }
 
+// Export memories as JSON file
+function exportMemories() {
+    const dataStr = JSON.stringify(memories, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = 'divine-travel-memories-' + new Date().toISOString().split('T')[0] + '.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+}
+
+// Import memories from JSON file
+function importMemories(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedMemories = JSON.parse(e.target.result);
+            
+            // Validate the imported data
+            if (!Array.isArray(importedMemories)) {
+                throw new Error('Invalid file format');
+            }
+            
+            // Ask for confirmation
+            if (confirm(`Import ${importedMemories.length} memories? This will replace your current memories.`)) {
+                memories = importedMemories;
+                saveMemories();
+                location.reload(); // Reload to update everything
+            }
+        } catch (error) {
+            alert('Error importing memories. Please check the file format.');
+            console.error('Import error:', error);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
+}
+
 // Initialize the application
 function initApp() {
-    addLoadingOverlay();
     loadMemories();
     initGlobe();
+    
+    // Add event listeners for form
+    document.getElementById('memoryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const location = document.getElementById('location').value.trim();
+        const date = document.getElementById('date').value;
+        const memoryText = document.getElementById('memory').value.trim();
+        
+        if (!location || !date || !memoryText) {
+            alert('Please fill in all fields');
+            return;
+        }
+        
+        const geocodedLocation = geocodeLocation(location);
+        const newId = memories.length > 0 ? Math.max(...memories.map(m => m.id)) + 1 : 1;
+        
+        const newMemory = {
+            id: newId,
+            location: location,
+            lat: geocodedLocation.lat,
+            lng: geocodedLocation.lng,
+            date: date,
+            text: memoryText
+        };
+        
+        memories.push(newMemory);
+        saveMemories();
+        
+        const locationParts = location.split(', ');
+        if (locationParts.length > 1) {
+            countriesVisited.add(locationParts[1]);
+        }
+        
+        addMarker(newMemory);
+        updateStats();
+        renderMemoriesList();
+        
+        document.getElementById('memoryForm').reset();
+        document.getElementById('date').valueAsDate = new Date();
+        
+        alert(`Memory added for ${location}! Look for the new marker on the globe.`);
+    });
 }
 
 // Start the app when DOM is loaded
@@ -570,38 +860,18 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
-// Add some utility functions for future enhancements
-function exportMemories() {
-    const dataStr = JSON.stringify(memories, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Escape key closes modal
+    if (e.key === 'Escape' && document.getElementById('deleteModal').style.display === 'flex') {
+        hideDeleteModal();
+    }
     
-    const exportFileDefaultName = 'travel-memories.json';
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-}
+    // Ctrl+S to save/export (prevent default browser save)
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        exportMemories();
+    }
+});
 
-function importMemories(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importedMemories = JSON.parse(e.target.result);
-            memories = importedMemories;
-            saveMemories();
-            location.reload(); // Reload to update everything
-        } catch (error) {
-            alert('Error importing memories. Please check the file format.');
-        }
-    };
-    reader.readAsText(file);
-}
-
-// Add export/import functionality (optional - could be added to UI later)
-console.log('Travel Memory Globe initialized!');
-console.log('Use exportMemories() to export your memories as JSON');
-console.log('Use importMemories(event) with a file input to import memories');
+console.log("Divine's Travel Memory Globe initialized!");
