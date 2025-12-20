@@ -677,6 +677,14 @@ function geocodeLocation(location) {
         'boston, usa': { lat: 42.3601, lng: -71.0589 },
         'seattle, usa': { lat: 47.6062, lng: -122.3321 },
         'houston, usa': { lat: 29.7604, lng: -95.3698 },
+        'denver, usa': { lat: 39.7392, lng: -104.9903 },
+        'phoenix, usa': { lat: 33.4484, lng: -112.0740 },
+        'dallas, usa': { lat: 32.7767, lng: -96.7970 },
+        'atlanta, usa': { lat: 33.7489, lng: -84.3880 },
+        'philadelphia, usa': { lat: 39.9526, lng: -75.1932 },
+        'minneapolis, usa': { lat: 44.9778, lng: -93.2650 },
+        'indianapolis, usa': { lat: 39.7684, lng: -86.1581 },
+        'orlando, usa': { lat: 28.5383, lng: -81.3792 },
         
         // European Cities
         'paris, france': { lat: 48.8566, lng: 2.3522 },
